@@ -1,0 +1,19 @@
+<!doctype html><html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>NFL Offensive Rankings</title><link rel="stylesheet" href="styles.css"></head>
+<body>
+<header><div class="brand">NFL <span>OFFENSIVE RANKINGS</span></div>
+<div class="sub">Top 10 offensive players • OL excluded</div></header>
+<main>
+<section class="controls">
+<button class="active" data-position="QB">QB</button><button data-position="RB">RB</button>
+<button data-position="WR">WR</button><button data-position="TE">TE</button>
+<select id="view"><option value="season">Season</option><option value="week">Latest Week</option><option value="last3">Last 3 Games</option><option value="ppr">PPR Fantasy</option></select>
+</section>
+<section class="status"><div><b id="games">NFL</b><small>ranking system</small></div>
+<div><b id="week">—</b><small>data period</small></div><div><b id="updated">—</b><small>data status</small></div></section>
+<section><div class="section-title"><div><h1 id="title">Top 10 Quarterbacks</h1><p id="description"></p></div><button id="refresh">↻ Refresh</button></div>
+<div id="rankings" class="rankings"></div></section>
+<section class="method"><h2>Ranking model</h2>
+<p>Performance and PPR are separate. QB, RB, WR and TE each use position-specific weighting of volume, efficiency, touchdowns and turnovers. Offensive line and special teams are excluded.</p></section>
+</main><script src="app.js"></script></body></html>
