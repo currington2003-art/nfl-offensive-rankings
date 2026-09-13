@@ -38,7 +38,6 @@ def load_data():
 
     return pd.read_parquet(io.BytesIO(r.content))
 
-
 @app.get("/", response_class=HTMLResponse)
 def home():
     return """
