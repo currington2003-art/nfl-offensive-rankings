@@ -43,9 +43,14 @@ def rankings(
     view: str = Query("season", pattern="^(season|week|last3|ppr)$")
 ):
     df = load_data()
-    # Regular season only; the dataset is already player-week level.
-    if "season_type" in df:
-        df = df[df.season_type.astype(str).str.lower().isin(["reg","regular"])]
+
+# Only use the current NFL season.
+if "season" in df.columns:
+    df = df[pd.to_numeric(df["season"], errors="coerce") == 2026]
+
+# Regular season only.
+if "season_type" in df:
+    df = df[df.season_type.astype(str).str.lower().isin(["reg", "regular"])]
     if view == "week":
         df, week = latest_completed_week(df)
     elif view == "last3":
