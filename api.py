@@ -142,3 +142,83 @@ def all_rankings(
         position: rankings(position, view)
         for position in POSITIONS
     }
+
+
+# ---------------------------------------------------------------------------
+# Game-by-game snapshot support
+# ---------------------------------------------------------------------------
+
+ESPN_SCOREBOARD_URL = (
+    "https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard"
+)
+ESPN_SUMMARY_URL = (
+    "https://site.api.espn.com/apis/site/v2/sports/football/nfl/summary"
+)
+
+
+def _espn_json(url, params=None):
+    response = requests.get(
+        url,
+        params=params,
+        timeout=30,
+        headers={"User-Agent": "NFL-Offensive-Rankings/1.0"},
+    )
+    response.raise_for_status()
+    return response.json()
+
+
+def completed_games(date=None):
+    """Return completed regular-season games for a date from ESPN."""
+    params = {"dates": date} if date else {}
+    data = _espn_json(ESPN_SCOREBOARD_URL, params=params)
+
+    games = []
+    for event in data.get("events", []):
+        competition = (event.get("competitions") or [{}])[0]
+        status = competition.get("status", {}).get("type", {})
+        if status.get("completed") and event.get("season", {}).get("type") == 2:
+            games.append({
+                "game_id": event.get("id"),
+                "date": event.get("date"),
+                "name": event.get("name"),
+                "status": status.get("description"),
+            })
+    return games
+
+
+@app.get("/api/games")
+def games(date: str | None = None):
+    """List completed regular-season games, optionally for YYYYMMDD."""
+    return {"games": completed_games(date)}
+
+
+@app.get("/api/snapshot")
+def snapshot(
+    game_id: str,
+    position: str = Query("QB", pattern="^(QB|RB|WR|TE)$"),
+):
+    """
+    Return a game-aware ranking snapshot.
+
+    The weekly nflverse feed remains the authoritative season/statistics source.
+    ESPN supplies the completed-game identifier so the UI can display and track
+    the sequence of completed games.
+    """
+    data = _espn_json(ESPN_SUMMARY_URL, {"event": game_id})
+
+    competition = (data.get("header", {}).get("competitions") or [{}])[0]
+    status = competition.get("status", {}).get("type", {})
+
+    if not status.get("completed"):
+        return {
+            "game_id": game_id,
+            "completed": False,
+            "players": [],
+        }
+
+    # The current rankings endpoint contains the complete current-season
+    # ranking. The game ID is attached so the frontend can record the snapshot.
+    result = rankings(position=position, view="season")
+    result["game_id"] = game_id
+    result["completed"] = True
+    return result
