@@ -15,28 +15,29 @@ from rankings_engine import rank_weekly, latest_completed_week, POSITIONS
 
 app = FastAPI(
     title="NFL Offensive Rankings API",
-    version="1.0"
+    version="1.0",
 )
 
 
 DATA_URL = os.getenv(
     "NFLVERSE_URL",
-    "https://github.com/nflverse/nflverse-data/releases/download/player_stats/player_stats.parquet"
+    "https://github.com/nflverse/nflverse-data/releases/download/stats_player/stats_player_week_2026.csv",
 )
 
-CACHE = Path(os.getenv("NFL_CACHE", "nfl_cache.parquet"))
+CACHE = Path(os.getenv("NFL_CACHE", "nfl_cache.csv"))
 
 
 def load_data():
     if CACHE.exists() and time.time() - CACHE.stat().st_mtime < 900:
-        return pd.read_parquet(CACHE)
+        return pd.read_csv(CACHE)
 
     r = requests.get(DATA_URL, timeout=60)
     r.raise_for_status()
 
     CACHE.write_bytes(r.content)
 
-    return pd.read_parquet(io.BytesIO(r.content))
+    return pd.read_csv(io.BytesIO(r.content))
+
 
 @app.get("/", response_class=HTMLResponse)
 def home():
@@ -55,14 +56,14 @@ def health():
     return {
         "ok": True,
         "source": DATA_URL,
-        "cache": CACHE.exists()
+        "cache": CACHE.exists(),
     }
 
 
 @app.get("/api/rankings")
 def rankings(
     position: str = Query("QB", pattern="^(QB|RB|WR|TE)$"),
-    view: str = Query("season", pattern="^(season|week|last3|ppr)$")
+    view: str = Query("season", pattern="^(season|week|last3|ppr)$"),
 ):
     df = load_data()
 
@@ -86,13 +87,18 @@ def rankings(
 
     elif view == "last3":
         weeks = sorted(
-            pd.to_numeric(df["week"], errors="coerce")
+            pd.to_numeric(
+                df["week"], errors="coerce"
+            )
             .dropna()
             .unique()
         )
 
-        df = df[df["week"].isin(weeks[-3:])] if weeks else df
-        week = weeks[-3:] if weeks else []
+        if weeks:
+            df = df[df["week"].isin(weeks[-3:])]
+            week = weeks[-3:]
+        else:
+            week = []
 
     else:
         week = None
@@ -121,12 +127,17 @@ def rankings(
         "view": view,
         "week": week,
         "updated_at": int(time.time()),
-        "players": ranked.fillna("").to_dict(orient="records")
+        "players": ranked.fillna("").to_dict(orient="records"),
     }
 
 
 @app.get("/api/all")
-def all_rankings(view: str = "season"):
+def all_rankings(
+    view: str = Query(
+        "season",
+        pattern="^(season|week|last3|ppr)$",
+    )
+):
     return {
         position: rankings(position, view)
         for position in POSITIONS
